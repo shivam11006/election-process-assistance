@@ -19,10 +19,12 @@ const Login = () => {
             await login(formData.email, formData.password);
             navigate('/dashboard');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to login');
+            console.error(err);
+            setError(err.message || 'Failed to login. Please check your credentials.');
         } finally {
             setLoading(false);
         }
+
     };
 
     return (

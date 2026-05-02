@@ -4,7 +4,22 @@ import {
     Trash2, Plus, MessageSquare, Menu, X, History, User, MessageSquareCode
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import api from '../services/api';
+import { 
+    collection, 
+    addDoc, 
+    updateDoc, 
+    doc, 
+    query, 
+    where, 
+    orderBy, 
+    onSnapshot, 
+    deleteDoc,
+    serverTimestamp,
+    getDoc
+} from 'firebase/firestore';
+import { db } from '../firebase';
+import { aiService } from '../services/aiService';
+import { useAuth } from '../context/AuthContext';
 import Loader from '../components/Loader';
 
 // Lazy load the heavy Chat UI
@@ -12,43 +27,61 @@ const ChatUI = lazy(() => import('../components/chat/ChatUI'));
 
 const ChatAssistant = () => {
     const { t } = useTranslation();
+    const { user } = useAuth();
     const [messages, setMessages] = useState([
         { role: 'assistant', content: 'Hello! I am your Election Guide Assistant. How can I help you today?' }
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const [historyLoading, setHistoryLoading] = useState(false);
     const [error, setError] = useState('');
     const [history, setHistory] = useState([]);
     const [currentChatId, setCurrentChatId] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-    const fetchHistory = useCallback(async () => {
-        setHistoryLoading(true);
-        try {
-            const response = await api.get('/chat/history');
-            setHistory(response.data.data);
-        } catch (err) {
-            console.error('Failed to fetch history:', err);
-        } finally {
-            setHistoryLoading(false);
-        }
-    }, []);
-
+    // Fetch chat history from Firestore
     useEffect(() => {
-        fetchHistory();
-    }, [fetchHistory]);
+        if (!user) return;
+
+        const q = query(
+            collection(db, "chats"),
+            where("userId", "==", user.uid)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const chats = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            // Client-side sorting to avoid the need for a composite index
+            const sortedChats = chats.sort((a, b) => {
+                const timeA = a.updatedAt?.toMillis() || 0;
+                const timeB = b.updatedAt?.toMillis() || 0;
+                return timeB - timeA;
+            });
+
+            setHistory(sortedChats);
+        }, (err) => {
+            console.error("Firestore Snapshot Error:", err);
+        });
+
+
+
+        return () => unsubscribe();
+    }, [user]);
 
     const loadChat = async (chatId) => {
         setLoading(true);
         setError('');
         try {
-            const response = await api.get(`/chat/${chatId}`);
-            setMessages(response.data.data.messages);
-            setCurrentChatId(chatId);
+            const chatDoc = await getDoc(doc(db, "chats", chatId));
+            if (chatDoc.exists()) {
+                setMessages(chatDoc.data().messages);
+                setCurrentChatId(chatId);
+            }
             if (window.innerWidth < 768) setIsSidebarOpen(false);
         } catch (err) {
-            setError('Failed to load chat history');
+            setError('Failed to load chat');
             console.error(err);
         } finally {
             setLoading(false);
@@ -59,11 +92,52 @@ const ChatAssistant = () => {
         e.stopPropagation();
         if (!window.confirm('Are you sure you want to delete this chat?')) return;
         try {
-            await api.delete(`/chat/${chatId}`);
-            setHistory(prev => prev.filter(chat => chat._id !== chatId));
+            await deleteDoc(doc(db, "chats", chatId));
             if (currentChatId === chatId) createNewChat();
         } catch (err) {
             console.error('Failed to delete chat:', err);
+        }
+    };
+
+    const handleSend = async (e) => {
+        e.preventDefault();
+        if (!input.trim() || loading || !user) return;
+
+        const userMessage = input.trim();
+        setInput('');
+        
+        const newMessages = [...messages, { role: 'user', content: userMessage }];
+        setMessages(newMessages);
+        setLoading(true);
+        setError('');
+
+        try {
+            const aiResponse = await aiService.chat(userMessage, messages);
+            const updatedMessages = [...newMessages, { role: 'assistant', content: aiResponse }];
+            setMessages(updatedMessages);
+
+            if (currentChatId) {
+                // Update existing chat
+                await updateDoc(doc(db, "chats", currentChatId), {
+                    messages: updatedMessages,
+                    updatedAt: serverTimestamp()
+                });
+            } else {
+                // Create new chat session
+                const chatData = {
+                    userId: user.uid,
+                    title: userMessage.substring(0, 30) + (userMessage.length > 30 ? '...' : ''),
+                    messages: updatedMessages,
+                    updatedAt: serverTimestamp(),
+                    createdAt: serverTimestamp()
+                };
+                const docRef = await addDoc(collection(db, "chats"), chatData);
+                setCurrentChatId(docRef.id);
+            }
+        } catch (err) {
+            setError(err.message || 'Failed to get a response');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -75,32 +149,7 @@ const ChatAssistant = () => {
         if (window.innerWidth < 768) setIsSidebarOpen(false);
     };
 
-    const handleSend = async (e) => {
-        e.preventDefault();
-        if (!input.trim() || loading) return;
 
-        const userMessage = input.trim();
-        setInput('');
-        setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-        setLoading(true);
-        setError('');
-
-        try {
-            const response = await api.post('/chat', { 
-                message: userMessage,
-                chatId: currentChatId 
-            });
-            setMessages(prev => [...prev, { role: 'assistant', content: response.data.response }]);
-            if (!currentChatId) {
-                setCurrentChatId(response.data.chatId);
-                fetchHistory();
-            }
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to get a response');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     return (
         <div className="flex h-[80vh] glass-card overflow-hidden relative">
@@ -137,22 +186,25 @@ const ChatAssistant = () => {
                                 Recent Chats
                             </div>
                             
-                            {historyLoading ? (
-                                <div className="p-4 space-y-2">
-                                    {[1, 2, 3].map(i => <div key={i} className="h-10 bg-slate-800/50 rounded-lg animate-pulse" />)}
+                            {history.length === 0 ? (
+                                <div className="p-4 text-center text-slate-500 text-sm italic">
+                                    No recent chats
                                 </div>
                             ) : (
                                 history.map((chat) => (
                                     <div
-                                        key={chat._id}
-                                        onClick={() => loadChat(chat._id)}
+                                        key={chat.id}
+                                        onClick={() => loadChat(chat.id)}
                                         className={`group relative flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition-all ${
-                                            currentChatId === chat._id ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800/50'
+                                            currentChatId === chat.id ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800/50'
                                         }`}
                                     >
-                                        <MessageSquare className="w-4 h-4" />
+                                        <MessageSquare className="w-4 h-4 shrink-0" />
                                         <span className="text-sm truncate pr-6">{chat.title || 'Untitled Chat'}</span>
-                                        <button onClick={(e) => deleteChat(e, chat._id)} className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all">
+                                        <button 
+                                            onClick={(e) => deleteChat(e, chat.id)} 
+                                            className="absolute right-2 opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all"
+                                        >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -160,13 +212,17 @@ const ChatAssistant = () => {
                             )}
                         </div>
 
+
                         <div className="p-4 border-t border-slate-800 mt-auto">
-                            <div className="flex items-center gap-3 p-2">
-                                <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center">
-                                    <User className="w-4 h-4 text-slate-300" />
+                            <div className="flex items-center gap-3 p-2 bg-slate-900/50 rounded-xl">
+                                <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center text-primary-500">
+                                    <User className="w-5 h-5" />
                                 </div>
-                                <div className="flex-1 overflow-hidden">
-                                    <p className="text-sm font-medium text-slate-200 truncate">My Account</p>
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-bold text-white truncate w-32">
+                                        {user?.displayName || user?.name || 'Voter'}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500">My Account</span>
                                 </div>
                             </div>
                         </div>

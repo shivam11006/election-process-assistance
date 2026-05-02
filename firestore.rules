@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is the owner of the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // Voting logic
+    match /votes/{voteId} {
+      // Authenticated users can read their own votes or general tallies (if implemented)
+      allow read: if isAuthenticated();
+      
+      // Critical security for voting
+      allow create: if isAuthenticated() 
+        && isOwner(request.resource.data.userId)
+        // Ensure the timestamp is the server time
+        && request.resource.data.timestamp == request.time;
+        
+      // Prevent editing or deleting votes once cast
+      allow update, delete: if false;
+    // Chat history
+    match /chats/{chatId} {
+      allow read, delete: if isAuthenticated() && isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      allow update: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+  }
+}
+

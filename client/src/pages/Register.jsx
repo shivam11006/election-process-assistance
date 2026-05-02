@@ -19,10 +19,12 @@ const Register = () => {
             await register(formData.name, formData.email, formData.password);
             navigate('/dashboard');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to register');
+            console.error(err);
+            setError(err.message || 'Failed to create account. Please try again.');
         } finally {
             setLoading(false);
         }
+
     };
 
     return (

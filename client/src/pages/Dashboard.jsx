@@ -1,11 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, MessageSquare, Calendar, CheckCircle, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const Dashboard = () => {
     const { user } = useAuth();
+    const [chatCount, setChatCount] = useState(0);
+
+    useEffect(() => {
+        if (!user) return;
+
+        const q = query(
+            collection(db, "chats"),
+            where("userId", "==", user.uid)
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setChatCount(snapshot.size);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
 
     return (
         <div className="flex flex-col gap-10">
@@ -13,7 +32,7 @@ const Dashboard = () => {
                 <div>
                     <h1 className="text-2xl md:text-4xl font-bold flex items-center gap-3">
                         <LayoutDashboard className="text-primary-500 w-6 h-6 md:w-8 md:h-8" />
-                        Welcome, {user?.name}
+                        Welcome, {user?.displayName || user?.name || 'Voter'}
                     </h1>
                     <p className="text-slate-400 mt-2 text-base md:text-lg">Your personalized election assistant dashboard.</p>
                 </div>
@@ -22,9 +41,10 @@ const Dashboard = () => {
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard title="Voter Status" value="Registered" color="text-green-400" />
                 <StatCard title="Election Phase" value="Upcoming" color="text-blue-400" />
-                <StatCard title="Chat History" value="12 Messages" color="text-primary-400" />
+                <StatCard title="Chat History" value={`${chatCount} ${chatCount === 1 ? 'Chat' : 'Chats'}`} color="text-primary-400" />
                 <StatCard title="Booth Location" value="Assigned" color="text-orange-400" />
             </div>
+
 
             <div className="grid lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 flex flex-col gap-8">

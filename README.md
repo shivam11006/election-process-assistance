@@ -1,18 +1,15 @@
-# 🗳️ Election Guide Assistant
+# 🗳️ Election Guide Assistant - Serverless Edition
 
-[![Vite](https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62e)](https://vitejs.dev/)
+[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=white)](https://firebase.google.com/)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Vite](https://img.shields.io/badge/Vite-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62e)](https://vitejs.dev/)
+[![Firestore](https://img.shields.io/badge/Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=white)](https://firebase.google.com/products/firestore)
 
-A premium, full-stack MERN application designed to simplify and digitize the Indian election process. The platform provides voters with AI-powered assistance, interactive location tools, and real-time process tracking to ensure every citizen can participate in democracy with ease.
+A fully serverless, highly scalable, and secure web application for Indian election assistance and voting. This project has been migrated from a MERN stack to a **Firebase-centric architecture** to ensure maximum performance, real-time updates, and robust security.
 
 ---
 
 ## 📸 Project Demos
-
-
 
 | Hero Section | User Dashboard |
 | :---: | :---: |
@@ -26,129 +23,98 @@ A premium, full-stack MERN application designed to simplify and digitize the Ind
 
 ## 🚀 Project Overview
 
-The **Election Guide Assistant** is a comprehensive digital companion for voters. It bridges the gap between complex election procedures and citizen understanding by providing a centralized hub for registration info, booth locations, and eligibility verification. Built with a focus on high performance and accessibility, it features a modern glassmorphism UI and optimized lazy-loaded components.
+The **Election Guide Assistant** is a digital companion for voters, designed to simplify democratic participation. By moving to a serverless architecture, we have eliminated backend maintenance, improved scalability, and implemented real-time voting results without the overhead of custom WebSockets or polling.
 
 ## 🛑 Problem Statement
 
-Navigating the electoral process in a large democracy like India can be overwhelming. Citizens often face:
-- **Information Overload**: Difficulty finding reliable, concise information on registration and procedures.
-- **Location Confusion**: Challenges in locating correct polling booths or election offices.
-- **Eligibility Uncertainty**: Lack of clarity on voting rights and required documentation.
-- **Complex UI**: Government portals can sometimes be difficult to navigate for the average user.
+Navigating the electoral process in a large democracy can be overwhelming. Citizens face:
+- **Information Overload**: Finding reliable registration info is hard.
+- **Location Confusion**: Locating polling booths is challenging.
+- **Fraud Risks**: Ensuring "one user, one vote" in a digital environment.
 
-This project solves these issues by providing a **one-stop, AI-driven intuitive interface**.
+This project addresses these issues using a **Firebase-powered, AI-driven intuitive interface**.
 
-## ✨ Features
+## 🏗️ Firebase Architecture
 
-- **🤖 AI-Powered Chat Assistant**: Integrated with Google Gemini to provide instant, accurate answers about the election process.
-- **📍 Interactive Booth Locator**: Built with Google Maps API to help users find the nearest polling stations and offices.
-- **⏳ Dynamic Election Timeline**: An animated, scroll-synced journey through the various stages of the election.
-- **📋 Eligibility Checker**: A quick tool to verify voting eligibility based on current laws.
-- **📊 Personalized Dashboard**: User-specific view of voter status, upcoming deadlines, and chat history.
-- **🌐 Multi-language Support**: i18next integration for local language accessibility.
-- **⚡ Performance Optimized**: Implemented route-level lazy loading, component code-splitting, and manual chunking for lightning-fast loads.
-
-## 🛠️ Tech Stack
-
-### Frontend
-- **Framework**: React 19 (Vite)
-- **Styling**: Tailwind CSS (Glassmorphism design)
-- **Animations**: Framer Motion
-- **Icons**: Lucide React
-- **Routing**: React Router 7
-
-### Backend
-- **Runtime**: Node.js
-- **Framework**: Express.js
-- **Database**: MongoDB (Mongoose)
-- **AI Integration**: Google Generative AI (Gemini)
-
-### Infrastructure & Optimization
-- **Authentication**: JWT (JSON Web Tokens)
-- **Build Tool**: Vite
-- **Plugins**: `vite-plugin-compression` (Gzip/Brotli)
-
----
-
-## 📐 Architecture Diagram
+The application is built on a modern serverless stack:
 
 ```mermaid
 graph TD
     User((User)) -->|Interacts| UI[React Frontend - Vite]
-    UI -->|API Requests| Server[Express Backend]
-    Server -->|Query/Save| DB[(MongoDB)]
-    Server -->|AI Query| Gemini[Google Gemini API]
-    UI -->|Load Maps| GMap[Google Maps API]
+    UI -->|Authentication| Auth[Firebase Auth]
+    UI -->|Real-time Data| Firestore[Cloud Firestore]
+    UI -->|Secure Logic| Rules[Firestore Security Rules]
+    UI -->|AI Insights| Gemini[Google Gemini AI SDK]
+    UI -->|Maps| GMap[Google Maps API]
     
-    subgraph Frontend Logic
-        UI -->|Lazy Load| Pages[Pages/Components]
-        UI -->|Auth| Context[AuthContext]
-    end
-    
-    subgraph Backend Logic
-        Server -->|Verify| Middleware[Auth Middleware]
-        Server -->|Process| Routes[API Routes]
+    subgraph Firebase Cloud
+        Auth -->|UID| Firestore
+        Firestore -->|Enforce| Rules
     end
 ```
 
+## ✨ Key Features
+
+- **🛡️ Secure Firebase Auth**: Instant signup/login with persistent sessions.
+- **🗳️ One-Person-One-Vote**: Strict Firestore rules and application logic prevent duplicate voting.
+- **🧠 AI-Based Fraud Detection**: Rule-based intelligence flags "Blast Voting" and suspicious high-frequency patterns.
+- **📊 Real-time Voting Results**: Live tallies using Firestore's `onSnapshot` listeners.
+- **🤖 Gemini AI Assistant**: Direct integration for electoral guidance.
+- **📍 Interactive Maps**: Google Maps integration for booth location.
+
+## 🔒 Security & Fraud Detection
+
+### Firestore Security Rules
+- **Authentication Required**: No data access without a valid Firebase UID.
+- **Ownership Enforcement**: Users can only read/write their own profiles.
+- **Immutability**: Once a vote is cast, it cannot be edited or deleted.
+- **Server Timestamps**: Ensures all votes are recorded with trusted server time.
+
+### 🧠 AI Fraud Detection Logic
+The system uses an intelligent rule-based monitor in `voteService.js`:
+- **Blast Voting Check**: Before a vote is accepted, the system analyzes the most recent global votes.
+- **Pattern Matching**: If 10+ votes are detected within 5 seconds, the activity is flagged as "Suspicious" and logged.
+- **Metadata Tracking**: Each vote records User-Agent and Platform data to identify bot-driven attempts.
+
+## 🛠️ Tech Stack
+
+- **Frontend**: React 19 (Vite)
+- **Backend**: **Fully Serverless (Firebase)**
+- **Authentication**: Firebase Auth
+- **Database**: Cloud Firestore
+- **AI**: Google Gemini AI
+- **Optimization**: Route-level lazy loading & code-splitting
+
 ---
 
-## 🔒 Security Features
+## 🛠️ Setup Steps
 
-- **JWT Authentication**: Secure, stateless authentication for user sessions.
-- **Password Hashing**: Industry-standard encryption using `bcrypt` for user credentials.
-- **Protected Routes**: Middleware-level checks to prevent unauthorized access to private data.
-- **Environment Safety**: Sensitive API keys (Gemini, Google Maps, MongoDB URI) are managed strictly via `.env` files.
-- **CORS Protection**: Restricted origin access to prevent cross-site request forgery.
-
-## 🔮 Future Scope
-
-- **🔗 Blockchain Integration**: Implementing a secure, transparent e-voting prototype using Ethereum/Polygon.
-- **🔔 Real-time Notifications**: Push notifications for election dates, registration deadlines, and results.
-- **📈 Live Result Analytics**: Interactive data visualization for election results across various constituencies.
-- **📱 Mobile App**: Dedicated React Native application for on-the-go voter assistance.
-- **🤝 Social Sharing**: One-click sharing of voter awareness badges to encourage democratic participation.
-
----
-
-## 🛠️ Getting Started
-
-### Prerequisites
-- Node.js (v18+)
-- MongoDB Atlas Account
-- Google Gemini API Key
-- Google Maps API Key
-
-### Installation
-
-1. Clone the repository:
+1. **Clone the Repo**:
    ```bash
    git clone https://github.com/shivam11006/election-process-assistance.git
    ```
 
-2. Install dependencies for both client and server:
+2. **Setup Firebase**:
+   - Create a project on [Firebase Console](https://console.firebase.google.com/).
+   - Enable **Authentication** (Email/Password).
+   - Create a **Firestore Database**.
+   - Copy your config to `client/.env.development.local`.
+
+3. **Install Dependencies**:
    ```bash
-   # Server
-   cd server
-   npm install
-   
-   # Client
-   cd ../client
+   cd client
    npm install
    ```
 
-3. Setup environment variables:
-   Create `.env` files in both `/client` and `/server` directories following the provided `.env.example` files.
+4. **Deploy Rules**:
+   - Copy the content of `firestore.rules` to the Rules tab in your Firebase Console.
 
-4. Run the development servers:
+5. **Run Locally**:
    ```bash
-   # Server
-   npm run dev
-   
-   # Client
    npm run dev
    ```
 
 ---
 
-Built with ❤️ by [Shivam](https://github.com/shivam11006)
+Built for a stronger democracy 🇮🇳 by [Shivam](https://github.com/shivam11006)
+

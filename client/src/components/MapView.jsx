@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
-import { MapPin, Search, Navigation } from 'lucide-react';
+import { MapPin, Search, Navigation, AlertCircle, Loader2 } from 'lucide-react';
+
 
 const containerStyle = {
   width: '100%',
@@ -13,10 +14,14 @@ const center = {
 };
 
 const MapView = () => {
-  const { isLoaded } = useJsApiLoader({
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const isKeyPlaceholder = !apiKey || apiKey.includes('...');
+
+  const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    googleMapsApiKey: isKeyPlaceholder ? '' : apiKey
   });
+
 
   const [map, setMap] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -41,15 +46,65 @@ const MapView = () => {
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((position) => {
-        setUserLocation({
+        const uLoc = {
           lat: position.coords.latitude,
           lng: position.coords.longitude
+        };
+        setUserLocation(uLoc);
+
+        // Generate 12 fake booths near user location
+        const nearbyBooths = Array.from({ length: 12 }, (_, i) => ({
+          id: i + 100,
+          name: i % 3 === 0 ? `Zonal Election Office #${i + 1}` : `Polling Station #${1000 + i}`,
+          lat: uLoc.lat + (Math.random() - 0.5) * 0.04,
+          lng: uLoc.lng + (Math.random() - 0.5) * 0.04,
+          type: i % 3 === 0 ? 'office' : 'booth',
+          address: `Area Sector ${i + 1}, Local District`
+        }));
+        
+        setBooths(prev => {
+          if (prev.some(b => b.id >= 100)) return prev;
+          return [...prev, ...nearbyBooths];
         });
       });
     }
   }, []);
 
-  if (!isLoaded) return <div className="h-[500px] flex items-center justify-center glass-card">Loading Maps...</div>;
+
+
+
+
+  if (isKeyPlaceholder) {
+    return (
+      <div className="h-[500px] flex flex-col items-center justify-center glass-card border-2 border-dashed border-red-500/50 bg-red-500/5">
+        <MapPin className="w-12 h-12 text-red-500 mb-4 opacity-50" />
+        <h3 className="text-xl font-bold text-red-400">Map API Key Missing</h3>
+        <p className="text-slate-400 mt-2 text-center max-w-md">
+          Please add a valid <strong>VITE_GOOGLE_MAPS_API_KEY</strong> to your <code>.env.development.local</code> file to enable the interactive booth locator.
+        </p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="h-[500px] flex flex-col items-center justify-center glass-card border-2 border-dashed border-red-500/50">
+        <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+        <h3 className="text-xl font-bold text-red-400">Map Load Error</h3>
+        <p className="text-slate-400 mt-2">{loadError.message}</p>
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="h-[500px] flex flex-col items-center justify-center glass-card">
+        <Loader2 className="w-10 h-10 text-primary-500 animate-spin mb-4" />
+        <p className="text-slate-400 font-medium">Initializing Google Maps...</p>
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex flex-col gap-6">

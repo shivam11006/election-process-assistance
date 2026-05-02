@@ -1,5 +1,13 @@
 import { createContext, useState, useEffect, useContext, useMemo, useCallback } from 'react';
-import api from '../services/api';
+import { 
+    signInWithEmailAndPassword, 
+    createUserWithEmailAndPassword, 
+    signOut, 
+    onAuthStateChanged,
+    updateProfile
+} from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { auth, db } from '../firebase';
 
 const AuthContext = createContext();
 
@@ -8,41 +16,54 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch (e) {
-                localStorage.removeItem('user');
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                // Get additional user data from Firestore
+                const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+                const userData = userDoc.exists() ? userDoc.data() : {};
+                
+                setUser({
+                    uid: firebaseUser.uid,
+                    email: firebaseUser.email,
+                    displayName: firebaseUser.displayName,
+                    ...userData
+                });
+            } else {
+                setUser(null);
             }
-        }
-        setLoading(false);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
     const login = useCallback(async (email, password) => {
-        const response = await api.post('/auth/login', { email, password });
-        const { token, user: userData } = response.data;
-        
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
-        return response.data;
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        return result.user;
     }, []);
 
     const register = useCallback(async (name, email, password) => {
-        const response = await api.post('/auth/register', { name, email, password });
-        const { token, user: userData } = response.data;
+        const result = await createUserWithEmailAndPassword(auth, email, password);
         
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
-        return response.data;
+        // Update Firebase profile
+        await updateProfile(result.user, { displayName: name });
+        
+        // Create user profile in Firestore
+        const userData = {
+            uid: result.user.uid,
+            name,
+            email,
+            createdAt: new Date().toISOString(),
+            role: 'voter'
+        };
+        
+        await setDoc(doc(db, "users", result.user.uid), userData);
+        
+        return result.user;
     }, []);
 
-    const logout = useCallback(() => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setUser(null);
+    const logout = useCallback(async () => {
+        await signOut(auth);
     }, []);
 
     const value = useMemo(() => ({ 
@@ -55,10 +76,11 @@ export const AuthProvider = ({ children }) => {
 
     return (
         <AuthContext.Provider value={value}>
-            {children}
+            {!loading && children}
         </AuthContext.Provider>
     );
 };
 
 export const useAuth = () => useContext(AuthContext);
+
 
